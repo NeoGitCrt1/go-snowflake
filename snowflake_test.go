@@ -9,7 +9,7 @@ import (
 	"github.com/NeoGitCrt1/go-snowflake"
 )
 
-func TestID(t *testing.T) {
+func TestID_Single(t *testing.T) {
 	id := snowflake.ID()
 
 	if id <= 0 {
@@ -29,7 +29,7 @@ func TestID(t *testing.T) {
 		if _, ok := mp[id]; ok {
 			sid := snowflake.ParseID(id)
 			t.Error("ID should't repeat", id, ":", i, ":", sid)
-			break
+			continue
 		}
 		mp[id] = true
 	}
@@ -37,7 +37,7 @@ func TestID(t *testing.T) {
 
 func TestID_bitch(t *testing.T) {
 	le := 5000000
-	//snowflake.SetSequenceResolver(snowflake.AtomicResolver)
+	snowflake.SetSequenceResolver(snowflake.AtomicResolver)
 	ch := make(chan uint64, le)
 	var wg sync.WaitGroup
 	for i := 0; i < le; i++ {
@@ -253,4 +253,13 @@ func TestSID_GenerateTime(t *testing.T) {
 	if sid.GenerateTime().UTC().Second() != time.Now().UTC().Second() {
 		t.Error("The id generate time should be equal current time")
 	}
+}
+
+
+func BenchmarkParallelDefault(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			snowflake.NextID()
+		}
+	})
 }

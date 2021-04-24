@@ -1,9 +1,7 @@
 package snowflake
 
 import (
-	"errors"
 	"time"
-	"sync/atomic"
 )
 
 // These constants are the bit lengths of snowflake ID parts.
@@ -31,11 +29,10 @@ type SequenceResolver func(ms int64) (uint16, error)
 // default machineID is 0
 // default resolver is AtomicResolver
 var (
-	resolver  SequenceResolver
-	machineID = 0
-	startTime = time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC)
-	stTimestamp = startTime.UTC().UnixNano()/1e6
-	now int64 = time.Now().UnixNano() / 1e6
+	resolver    SequenceResolver
+	machineID   = 0
+	startTime   = time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC)
+	stTimestamp = startTime.UTC().UnixNano() / 1e6
 )
 
 // ID use ID to generate snowflake id and it will ignore error. if you want error info, you need use NextID method.
@@ -44,31 +41,61 @@ func ID() uint64 {
 	id, _ := NextID()
 	return id
 }
+// go func() {
+// 	for {
+// 		value := rand.Intn(MaxRandomNumber)
+		
+// 		select {
+// 		case <- stopCh:
+// 			return
+// 		case dataCh <- value:
+// 		}
+// 	}
+// }()
+var idChan chan uint64 = make(chan uint64, 200 )
+
+func init() {
+
+	go func() {
+		var now int64 = time.Now().UnixNano() / 1e6
+		var seq int
+		df := int(elapsedTime(now))
+		for {
+			seq = MaxSequence & (seq + 1)
+			if seq == 0 {
+				now++
+				df = int(elapsedTime(now))
+			}
+			id := uint64((df << timestampMoveLength) | (machineID << machineIDMoveLength) | seq)
+			idChan <- id
+		}
+	}()
+
+}
 
 // NextID use NextID to generate snowflake id and return an error.
 // This function is thread safe.
 func NextID() (uint64, error) {
-	c := currentMillis()
-	seq, err := callSequenceResolver()(c)
+	// c := currentMillis()
+	// //seq, err := callSequenceResolver()(c)
 
-	if err != nil {
-		return 0, err
-	}
+	// // if err != nil {
+	// // 	return 0, err
+	// // }
+	// seq := <-seqChan
 
-	if (seq >= MaxSequence - 100) {
-		c = atomic.AddInt64(&now, 1)
-		seq, _ = callSequenceResolver()(c)
-		if err != nil {
-			return 0, err
-		}
-	}
+	// if seq == 0 {
+	// 	c = atomic.AddInt64(&now, 1)
+	// }
 
-	df := int(elapsedTime(c))
-	if df < 0 || df > MaxTimestamp {
-		return 0, errors.New("The maximum life cycle of the snowflake algorithm is 2^41-1(millis), please check starttime")
-	}
-	id := uint64((df << timestampMoveLength) | (machineID << machineIDMoveLength) | int(seq))
-	return id, nil
+	// seqChan <- seq
+
+	// df := int(elapsedTime(c))
+	// if df < 0 || df > MaxTimestamp {
+	// 	return 0, errors.New("The maximum life cycle of the snowflake algorithm is 2^41-1(millis), please check starttime")
+	// }
+	// id := uint64((df << timestampMoveLength) | (machineID << machineIDMoveLength) | int(seq))
+	return <-idChan, nil
 }
 
 // SetStartTime set the start time for snowflake algorithm.
@@ -89,14 +116,13 @@ func SetStartTime(s time.Time) {
 		panic("The s cannot be greater than the current millisecond")
 	}
 	startTime = s
-	stTimestamp = s.UTC().UnixNano()/1e6
+	stTimestamp = s.UTC().UnixNano() / 1e6
 	// Because s must after now, so the `df` not < 0.
 	df := elapsedTime(currentMillis())
 	if df > MaxTimestamp {
 		panic("The maximum life cycle of the snowflake algorithm is 69 years")
 	}
 
-	
 }
 
 // SetMachineID specify the machine ID. It will panic when machineid > max limit for 2^10-1.
@@ -171,5 +197,5 @@ func elapsedTime(nowms int64) int64 {
 
 // currentMillis get current millisecond.
 func currentMillis() int64 {
-	return atomic.LoadInt64(&now)
+	return time.Now().UTC().UnixNano() / 1e6
 }
