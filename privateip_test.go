@@ -3,7 +3,7 @@ package snowflake_test
 import (
 	"testing"
 
-	"github.com/godruoyi/go-snowflake"
+	"github.com/NeoGitCrt1/go-snowflake"
 )
 
 func TestPrivateIPToMachineID(t *testing.T) {

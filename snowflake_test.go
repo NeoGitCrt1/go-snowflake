@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/godruoyi/go-snowflake"
+	"github.com/NeoGitCrt1/go-snowflake"
 )
 
 func TestID(t *testing.T) {
@@ -19,12 +19,16 @@ func TestID(t *testing.T) {
 	mp := make(map[uint64]bool)
 	for i := 0; i < 100000; i++ {
 		id, e := snowflake.NextID()
+		// if (i % snowflake.MaxSequence == 0) {
+		// 	t.Log(snowflake.ParseID(id))
+		// }
 		if e != nil {
 			t.Error(e)
 			continue
 		}
 		if _, ok := mp[id]; ok {
-			t.Error("ID should't repeat", id)
+			sid := snowflake.ParseID(id)
+			t.Error("ID should't repeat", id, ":", i, ":", sid)
 			break
 		}
 		mp[id] = true
@@ -32,7 +36,8 @@ func TestID(t *testing.T) {
 }
 
 func TestID_bitch(t *testing.T) {
-	le := 100000
+	le := 5000000
+	//snowflake.SetSequenceResolver(snowflake.AtomicResolver)
 	ch := make(chan uint64, le)
 	var wg sync.WaitGroup
 	for i := 0; i < le; i++ {
@@ -49,13 +54,12 @@ func TestID_bitch(t *testing.T) {
 	mp := make(map[uint64]bool)
 	for id := range ch {
 		if _, ok := mp[id]; ok {
-			t.Error("It should not be repeated")
-			break
+			t.Log(snowflake.ParseID(id))
 		}
 		mp[id] = true
 	}
 	if len(mp) != le {
-		t.Error("map length should be equal", le)
+		t.Error("map length should be equal", le, "got:", len(mp))
 	}
 }
 

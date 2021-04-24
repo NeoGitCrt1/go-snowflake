@@ -3,6 +3,7 @@ package snowflake
 import (
 	"errors"
 	"time"
+	"sync/atomic"
 )
 
 // These constants are the bit lengths of snowflake ID parts.
@@ -33,6 +34,8 @@ var (
 	resolver  SequenceResolver
 	machineID = 0
 	startTime = time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC)
+	stTimestamp = startTime.UTC().UnixNano()/1e6
+	now int64 = time.Now().UnixNano() / 1e6
 )
 
 // ID use ID to generate snowflake id and it will ignore error. if you want error info, you need use NextID method.
@@ -46,26 +49,24 @@ func ID() uint64 {
 // This function is thread safe.
 func NextID() (uint64, error) {
 	c := currentMillis()
-	seqResolver := callSequenceResolver()
-	seq, err := seqResolver(c)
+	seq, err := callSequenceResolver()(c)
 
 	if err != nil {
 		return 0, err
 	}
 
-	for seq >= MaxSequence {
-		c = waitForNextMillis(c)
-		seq, err = seqResolver(c)
+	if (seq >= MaxSequence - 100) {
+		c = atomic.AddInt64(&now, 1)
+		seq, _ = callSequenceResolver()(c)
 		if err != nil {
 			return 0, err
 		}
 	}
 
-	df := int(elapsedTime(c, startTime))
+	df := int(elapsedTime(c))
 	if df < 0 || df > MaxTimestamp {
 		return 0, errors.New("The maximum life cycle of the snowflake algorithm is 2^41-1(millis), please check starttime")
 	}
-
 	id := uint64((df << timestampMoveLength) | (machineID << machineIDMoveLength) | int(seq))
 	return id, nil
 }
@@ -87,14 +88,15 @@ func SetStartTime(s time.Time) {
 	if s.After(time.Now()) {
 		panic("The s cannot be greater than the current millisecond")
 	}
-
+	startTime = s
+	stTimestamp = s.UTC().UnixNano()/1e6
 	// Because s must after now, so the `df` not < 0.
-	df := elapsedTime(currentMillis(), s)
+	df := elapsedTime(currentMillis())
 	if df > MaxTimestamp {
 		panic("The maximum life cycle of the snowflake algorithm is 69 years")
 	}
 
-	startTime = s
+	
 }
 
 // SetMachineID specify the machine ID. It will panic when machineid > max limit for 2^10-1.
@@ -157,17 +159,17 @@ func waitForNextMillis(last int64) int64 {
 
 func callSequenceResolver() SequenceResolver {
 	if resolver == nil {
-		return AtomicResolver
+		return SimpleResolver
 	}
 
 	return resolver
 }
 
-func elapsedTime(nowms int64, s time.Time) int64 {
-	return nowms - s.UTC().UnixNano()/1e6
+func elapsedTime(nowms int64) int64 {
+	return nowms - stTimestamp
 }
 
 // currentMillis get current millisecond.
 func currentMillis() int64 {
-	return time.Now().UTC().UnixNano() / 1e6
+	return atomic.LoadInt64(&now)
 }

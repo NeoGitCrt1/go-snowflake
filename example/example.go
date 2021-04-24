@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/godruoyi/go-snowflake"
+	"github.com/NeoGitCrt1/go-snowflake"
 )
 
 func main() {
