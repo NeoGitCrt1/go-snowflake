@@ -1,7 +1,6 @@
 package snowflake_test
 
 import (
-	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -37,7 +36,7 @@ func TestID_Single(t *testing.T) {
 
 func TestID_bitch(t *testing.T) {
 	le := 5000000
-	snowflake.SetSequenceResolver(snowflake.AtomicResolver)
+	// snowflake.SetSequenceResolver(snowflake.AtomicResolver)
 	ch := make(chan uint64, le)
 	var wg sync.WaitGroup
 	for i := 0; i < le; i++ {
@@ -176,9 +175,9 @@ func TestSetMachineID(t *testing.T) {
 }
 
 func TestSetSequenceResolver(t *testing.T) {
-	snowflake.SetSequenceResolver(func(c int64) (uint16, error) {
-		return 100, nil
-	})
+	// snowflake.SetSequenceResolver(func(c int64) (uint16, error) {
+	// 	return 100, nil
+	// })
 
 	id := snowflake.ID()
 	sid := snowflake.ParseID(id)
@@ -198,24 +197,6 @@ func TestSetSequenceResolver(t *testing.T) {
 
 	if sid2.Timestamp <= sid.Timestamp {
 		t.Error("It should be bigger than the previous time")
-	}
-}
-
-func TestNextID(t *testing.T) {
-	_, err := snowflake.NextID()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	snowflake.SetSequenceResolver(func(ms int64) (uint16, error) {
-		return 0, errors.New("test error")
-	})
-	_, e := snowflake.NextID()
-	if e == nil {
-		t.Error("Should be throw error")
-	} else if e.Error() != "test error" {
-		t.Error("NextID error message should be equal [test error]")
 	}
 }
 
@@ -241,7 +222,6 @@ func TestParseID(t *testing.T) {
 }
 
 func TestSID_GenerateTime(t *testing.T) {
-	snowflake.SetSequenceResolver(snowflake.AtomicResolver)
 	a, e := snowflake.NextID()
 	if e != nil {
 		t.Error(e)
@@ -254,7 +234,6 @@ func TestSID_GenerateTime(t *testing.T) {
 		t.Error("The id generate time should be equal current time")
 	}
 }
-
 
 func BenchmarkParallelDefault(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {

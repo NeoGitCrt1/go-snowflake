@@ -40,18 +40,20 @@ Based on this, we created this package and integrated multiple sequence-number p
 
 > Each provider only needs to ensure that the serial number generated in the same millisecond is different. You can get a unique ID.
 
+# INSPIRED BY
+github.com/godruoyi/go-snowflake
+
 ## Feature
 
 - ✅ Lock Free
 - 🎈 Zero configuration, out of the box
 - 🚀 Concurrency safety
 - 🌵 Support private ip to machineid
-- 🐡 Support custom sequence resolver
 
 ## Installation
 
 ```shell
-$ go get github.com/godruoyi/go-snowflake
+$ go get github.com/NeoGitCrt1/go-snowflake
 ```
 
 ## Usage
@@ -64,7 +66,7 @@ package main
 import (
     "fmt"
 
-    "github.com/godruoyi/go-snowflake"
+    "github.com/NeoGitCrt1/go-snowflake"
 )
 
 func main() {
@@ -77,13 +79,6 @@ func main() {
 2. Specify the MachineID.
 
 ```go
-package main
-
-import (
-    "fmt"
-
-    "github.com/godruoyi/go-snowflake"
-)
 
 func main() {
     snowflake.SetMachineID(1)
@@ -99,14 +94,6 @@ func main() {
 3. Specify start time.
 
 ```go
-package main
-
-import (
-    "fmt"
-    "time"
-
-    "github.com/godruoyi/go-snowflake"
-)
 
 func main() {
     snowflake.SetStartTime(time.Date(2014, 9, 1, 0, 0, 0, 0, time.UTC))
@@ -118,14 +105,6 @@ func main() {
 4. Parse ID.
 
 ```go
-package main
-
-import (
-    "fmt"
-    "time"
-
-    "github.com/godruoyi/go-snowflake"
-)
 
 func main() {
     id := snowflake.ID()
@@ -144,15 +123,6 @@ func main() {
 > ⚠️⚠️ All SetXXX method is thread-unsafe, recommended you call him in the main function.
 
 ```go
-package main
-
-import (
-    "fmt"
-    "time"
-    "net/http"
-
-    "github.com/godruoyi/go-snowflake"
-)
 
 func main() {
     snowflake.SetMachineID(1) // change to your machineID
@@ -166,30 +136,6 @@ func submitOrder(w http.ResponseWriter, req *http.Request) {
     orderId := snowflake.ID()
     // save order
 }
-```
-
-## Advanced
-
-Custom sequence resolver. you can customize the sequence-number resolver by following way:
-
-```go
-package main
-
-import (
-    "fmt"
-    "time"
-
-    "github.com/godruoyi/go-snowflake"
-)
-
-func yourSequenceNumber(ms int64) (uint16, error) {
-
-}
-
-// usage
-
-snowflake.SetSequenceResolver(yourSequenceNumber)
-snowflake.ID()
 ```
 
 ## License

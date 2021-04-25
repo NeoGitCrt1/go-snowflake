@@ -27,20 +27,12 @@ type SequenceResolver func(ms int64) (uint16, error)
 // default start time is 2008-11-10 23:00:00 UTC, why ? In the playground the time begins at 2009-11-10 23:00:00 UTC.
 // It's can run on golang playground.
 // default machineID is 0
-// default resolver is AtomicResolver
 var (
-	resolver    SequenceResolver
 	machineID   = 0
 	startTime   = time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC)
-	stTimestamp = startTime.UTC().UnixNano() / 1e6
+	stTimestamp = currentMillis(startTime)
 )
-
-// ID use ID to generate snowflake id and it will ignore error. if you want error info, you need use NextID method.
-// This function is thread safe.
-func ID() uint64 {
-	id, _ := NextID()
-	return id
-}
+// below for reference
 // go func() {
 // 	for {
 // 		value := rand.Intn(MaxRandomNumber)
@@ -57,7 +49,7 @@ var idChan chan uint64 = make(chan uint64, 200 )
 func init() {
 
 	go func() {
-		var now int64 = time.Now().UnixNano() / 1e6
+		var now int64 = currentMillis(time.Now())
 		var seq int
 		df := int(elapsedTime(now))
 		for {
@@ -73,28 +65,13 @@ func init() {
 
 }
 
-// NextID use NextID to generate snowflake id and return an error.
+// ID use ID to generate snowflake id .
 // This function is thread safe.
-func NextID() (uint64, error) {
-	// c := currentMillis()
-	// //seq, err := callSequenceResolver()(c)
+func ID() uint64 {
+	return <-idChan
+}
 
-	// // if err != nil {
-	// // 	return 0, err
-	// // }
-	// seq := <-seqChan
-
-	// if seq == 0 {
-	// 	c = atomic.AddInt64(&now, 1)
-	// }
-
-	// seqChan <- seq
-
-	// df := int(elapsedTime(c))
-	// if df < 0 || df > MaxTimestamp {
-	// 	return 0, errors.New("The maximum life cycle of the snowflake algorithm is 2^41-1(millis), please check starttime")
-	// }
-	// id := uint64((df << timestampMoveLength) | (machineID << machineIDMoveLength) | int(seq))
+func NextID() (uint64 , error){
 	return <-idChan, nil
 }
 
@@ -118,7 +95,7 @@ func SetStartTime(s time.Time) {
 	startTime = s
 	stTimestamp = s.UTC().UnixNano() / 1e6
 	// Because s must after now, so the `df` not < 0.
-	df := elapsedTime(currentMillis())
+	df := elapsedTime(currentMillis(time.Now()))
 	if df > MaxTimestamp {
 		panic("The maximum life cycle of the snowflake algorithm is 69 years")
 	}
@@ -132,14 +109,6 @@ func SetMachineID(m uint16) {
 		panic("The machineid cannot be greater than 1023")
 	}
 	machineID = int(m)
-}
-
-// SetSequenceResolver set an custom sequence resolver.
-// This function is thread-unsafe, recommended you call him in the main function.
-func SetSequenceResolver(seq SequenceResolver) {
-	if seq != nil {
-		resolver = seq
-	}
 }
 
 // SID snowflake id
@@ -171,31 +140,11 @@ func ParseID(id uint64) SID {
 	}
 }
 
-//--------------------------------------------------------------------
-// private function defined.
-//--------------------------------------------------------------------
-
-func waitForNextMillis(last int64) int64 {
-	now := currentMillis()
-	for now == last {
-		now = currentMillis()
-	}
-	return now
-}
-
-func callSequenceResolver() SequenceResolver {
-	if resolver == nil {
-		return SimpleResolver
-	}
-
-	return resolver
-}
-
 func elapsedTime(nowms int64) int64 {
 	return nowms - stTimestamp
 }
 
 // currentMillis get current millisecond.
-func currentMillis() int64 {
-	return time.Now().UTC().UnixNano() / 1e6
+func currentMillis(t time.Time) int64 {
+	return t.UTC().UnixNano() / 1e6
 }
