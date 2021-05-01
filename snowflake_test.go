@@ -1,15 +1,13 @@
-package snowflake_test
+package snowflake
 
 import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/NeoGitCrt1/go-snowflake"
 )
 
 func TestID_Single(t *testing.T) {
-	id := snowflake.ID()
+	id := ID()
 
 	if id <= 0 {
 		t.Error("The snowflake should't < 0.")
@@ -17,13 +15,13 @@ func TestID_Single(t *testing.T) {
 
 	mp := make(map[uint64]bool)
 	for i := 0; i < 100000; i++ {
-		id := snowflake.ID()
-		// if (i % snowflake.MaxSequence == 0) {
-		// 	t.Log(snowflake.ParseID(id))
+		id := ID()
+		// if (i % MaxSequence == 0) {
+		// 	t.Log(ParseID(id))
 		// }
-		
+
 		if _, ok := mp[id]; ok {
-			sid := snowflake.ParseID(id)
+			sid := ParseID(id)
 			t.Error("ID should't repeat", id, ":", i, ":", sid)
 			continue
 		}
@@ -33,14 +31,14 @@ func TestID_Single(t *testing.T) {
 
 func TestID_bitch(t *testing.T) {
 	le := 5000000
-	// snowflake.SetSequenceResolver(snowflake.AtomicResolver)
+	// SetSequenceResolver(AtomicResolver)
 	ch := make(chan uint64, le)
 	var wg sync.WaitGroup
 	for i := 0; i < le; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			id := snowflake.ID()
+			id := ID()
 			ch <- id
 		}()
 	}
@@ -50,7 +48,7 @@ func TestID_bitch(t *testing.T) {
 	mp := make(map[uint64]bool)
 	for id := range ch {
 		if _, ok := mp[id]; ok {
-			t.Log(snowflake.ParseID(id))
+			t.Log(ParseID(id))
 		}
 		mp[id] = true
 	}
@@ -69,7 +67,7 @@ func TestSetStartTime(t *testing.T) {
 			}
 		}()
 		var time time.Time
-		snowflake.SetStartTime(time)
+		SetStartTime(time)
 	})
 
 	t.Run("Start time too big", func(tt *testing.T) {
@@ -81,7 +79,7 @@ func TestSetStartTime(t *testing.T) {
 			}
 		}()
 		time := time.Date(2035, 1, 1, 1, 0, 0, 0, time.UTC)
-		snowflake.SetStartTime(time)
+		SetStartTime(time)
 	})
 
 	t.Run("Start time too small", func(tt *testing.T) {
@@ -94,14 +92,14 @@ func TestSetStartTime(t *testing.T) {
 		}()
 		// because 2021-69 = 1952, set df time > 69 years to test.
 		time := time.Date(1951, 1, 1, 1, 0, 0, 0, time.UTC)
-		snowflake.SetStartTime(time)
+		SetStartTime(time)
 	})
 
 	t.Run("Default start time", func(tt *testing.T) {
 		defaultTime := time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC)
 		defaultNano := defaultTime.UTC().UnixNano() / 1e6
 
-		sid := snowflake.ParseID(snowflake.ID())
+		sid := ParseID(ID())
 		currentTime := sid.Timestamp + uint64(defaultNano)
 
 		nowNano := time.Now().UTC().UnixNano() / 1e6
@@ -114,13 +112,13 @@ func TestSetStartTime(t *testing.T) {
 
 	t.Run("Basic", func(tt *testing.T) {
 		date := time.Date(2002, 1, 1, 1, 0, 0, 0, time.UTC)
-		snowflake.SetStartTime(date)
+		SetStartTime(date)
 
 		nowNano := time.Now().UTC().UnixNano() / 1e6
 		startNano := date.UTC().UnixNano() / 1e6
 		df := nowNano - startNano
 
-		sid := snowflake.ParseID(snowflake.ID())
+		sid := ParseID(ID())
 
 		// approximate equality, Assuming that the program is completed in one second.
 		if sid.Timestamp/1000 != uint64(df)/1000 {
@@ -131,7 +129,7 @@ func TestSetStartTime(t *testing.T) {
 
 func TestSetMachineID(t *testing.T) {
 	// first test,
-	sid := snowflake.ParseID(snowflake.ID())
+	sid := ParseID(ID())
 	if sid.MachineID != 0 {
 		t.Error("MachineID should be equal 0")
 	}
@@ -143,9 +141,9 @@ func TestSetMachineID(t *testing.T) {
 			}
 		}()
 
-		snowflake.SetMachineID(1)
-		id := snowflake.ID()
-		sid := snowflake.ParseID(id)
+		SetMachineID(1)
+		id := ID()
+		sid := ParseID(id)
 
 		if sid.MachineID != 1 {
 			tt.Error("The machineID should be equal 1")
@@ -161,50 +159,24 @@ func TestSetMachineID(t *testing.T) {
 			}
 		}()
 
-		snowflake.SetMachineID(1024)
+		SetMachineID(1024)
 	})
 
-	snowflake.SetMachineID(100)
-	sid = snowflake.ParseID(snowflake.ID())
+	SetMachineID(100)
+	sid = ParseID(ID())
 	if sid.MachineID != 100 {
 		t.Error("MachineID should be equal 100")
 	}
 }
 
-func TestSetSequenceResolver(t *testing.T) {
-	// snowflake.SetSequenceResolver(func(c int64) (uint16, error) {
-	// 	return 100, nil
-	// })
-
-	id := snowflake.ID()
-	sid := snowflake.ParseID(id)
-
-	if sid.Sequence != 100 {
-		t.Error("The snowflake number part of sequence should be equal 100")
-	}
-
-	time.Sleep(time.Millisecond)
-
-	id = snowflake.ID()
-	sid2 := snowflake.ParseID(id)
-
-	if sid2.Sequence != 100 {
-		t.Error("The snowflake number part of sequence should be equal 100")
-	}
-
-	if sid2.Timestamp <= sid.Timestamp {
-		t.Error("It should be bigger than the previous time")
-	}
-}
-
 func TestParseID(t *testing.T) {
-	time := 101 << (snowflake.MachineIDLength + snowflake.SequenceLength)
-	machineid := 1023 << snowflake.SequenceLength
+	time := 101 << (MachineIDLength + SequenceLength)
+	machineid := 1023 << SequenceLength
 	seq := 999
 
 	id := uint64(time | machineid | seq)
 
-	d := snowflake.ParseID(id)
+	d := ParseID(id)
 	if d.Sequence != 999 {
 		t.Error("Sequence should be equal 999")
 	}
@@ -219,18 +191,73 @@ func TestParseID(t *testing.T) {
 }
 
 func TestSID_GenerateTime(t *testing.T) {
-	a := snowflake.ID()
-	sid := snowflake.ParseID(a)
+	a := ID()
+	sid := ParseID(a)
 
 	if sid.GenerateTime().UTC().Second() != time.Now().UTC().Second() {
 		t.Error("The id generate time should be equal current time")
 	}
 }
 
+func TestSIDSetStarttime(t *testing.T) {
+	v1 := ID()
+	s1 := ParseID(v1)
+
+	SetStartTime(time.Date(2001, 1, 1, 1, 1, 1, 1, time.Now().Local().Location()))
+
+	v1 = ID()
+	s2 := ParseID(v1)
+	t.Log(s1)
+	t.Log(s2)
+	if s1.Timestamp == s2.Timestamp {
+
+		t.Fail()
+	}
+
+}
+
+func TestConbineDandW(t *testing.T) {
+	v := conbineDandW(1, 1, 5)
+	if (v != 33) {
+		t.Log(v)
+		t.Fail()
+	}
+	v = conbineDandW(1, 2, 5)
+	if (v != 34) {
+		t.Log(v)
+		t.Fail()
+	}
+	v = conbineDandW(2, 1, 5)
+	if (v != 65) {
+		t.Log(v)
+		t.Fail()
+	}
+	v = conbineDandW(2, 3, 5)
+	if (v != 67) {
+		t.Log(v)
+		t.Fail()
+	}
+	v = conbineDandW(2, 3, 8)
+	if (v != 515) {
+		t.Log(v)
+		t.Fail()
+	}
+	v = conbineDandW(10, 10, 5)
+	if (v != 330) {
+		t.Log(v)
+		t.Fail()
+	}
+	v = conbineDandW(1, 255, 8)
+	if (v != 511) {
+		t.Log(v)
+		t.Fail()
+	}
+}
+
 func BenchmarkParallelDefault(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			snowflake.ID()
+			ID()
 		}
 	})
 }

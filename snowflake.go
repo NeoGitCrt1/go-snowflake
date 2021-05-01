@@ -36,14 +36,14 @@ type SequenceResolver func(ms int64) (uint16, error)
 // default machineID is 0
 var (
 	machineID   = 0
-	startTime   = time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC)
-	stTimestamp = currentMillis(startTime)
+	stTimestamp = currentMillis(time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC))
 )
+
 // below for reference
 // go func() {
 // 	for {
 // 		value := rand.Intn(MaxRandomNumber)
-		
+
 // 		select {
 // 		case <- stopCh:
 // 			return
@@ -51,22 +51,24 @@ var (
 // 		}
 // 	}
 // }()
-var idChan chan uint64 = make(chan uint64, 200 )
+var idChan chan uint64 = make(chan uint64, 200)
 
 func init() {
-
 	go func() {
+		mId := &machineID
+		st := &stTimestamp
 		var now int64 = currentMillis(time.Now())
-		var seq int
-		df := int(elapsedTime(now))
+		var seq int = 0
+		var df int
+		var pre int
 		for {
-			seq = MaxSequence & (seq + 1)
 			if seq == 0 {
 				now++
-				df = int(elapsedTime(now))
+				df = int(now - *st)
+				pre = (df << timestampMoveLength) | (*mId << machineIDMoveLength)
 			}
-			id := uint64((df << timestampMoveLength) | (machineID << machineIDMoveLength) | seq)
-			idChan <- id
+			seq = MaxSequence & (seq + 1)
+			idChan <- uint64(pre | seq)
 		}
 	}()
 
@@ -95,14 +97,35 @@ func SetStartTime(s time.Time) {
 	if s.After(time.Now()) {
 		panic("The s cannot be greater than the current millisecond")
 	}
-	startTime = s
-	stTimestamp = s.UTC().UnixNano() / 1e6
+
 	// Because s must after now, so the `df` not < 0.
-	df := elapsedTime(currentMillis(time.Now()))
+	df := currentMillis(time.Now()) - currentMillis(s)
 	if df > MaxTimestamp {
 		panic("The maximum life cycle of the snowflake algorithm is 69 years")
 	}
+	stTimestamp = currentMillis(s)
+	var v uint64 = ParseID(<-idChan).Timestamp
+	for s := range idChan {
+		t := ParseID(s).Timestamp
+		if t != v {
+			break
+		}
+		v = t
+	}
+}
 
+func SetDateCenterIdWorkerId(d uint8, w uint8) {
+	SetMachineID(conbineDandW(d, w, 5))
+}
+func SetDateCenterIdWorkerIdWithLen(d uint8, w uint8, wl uint8) {
+	SetMachineID(conbineDandW(d, w, wl))
+}
+
+func conbineDandW(d uint8, w uint8, wl uint8) uint16 {
+	if ( wl > MachineIDLength) {
+		panic("wl should less than 10")
+	}
+	return (uint16(d)<< (wl)) | uint16(w)
 }
 
 // SetMachineID specify the machine ID. It will panic when machineid > max limit for 2^10-1.
@@ -112,6 +135,14 @@ func SetMachineID(m uint16) {
 		panic("The machineid cannot be greater than 1023")
 	}
 	machineID = int(m)
+	var v uint64 = ParseID(<-idChan).MachineID
+	for s := range idChan {
+		t := ParseID(s).MachineID
+		if t != v {
+			break
+		}
+		v = t
+	}
 }
 
 // SID snowflake id
@@ -124,7 +155,7 @@ type SID struct {
 
 // GenerateTime snowflake generate at, return a UTC time.
 func (id *SID) GenerateTime() time.Time {
-	ms := startTime.UTC().UnixNano()/1e6 + int64(id.Timestamp)
+	ms := stTimestamp + int64(id.Timestamp)
 
 	return time.Unix(0, (ms * int64(time.Millisecond))).UTC()
 }
@@ -141,10 +172,6 @@ func ParseID(id uint64) SID {
 		MachineID: machineID,
 		Timestamp: time,
 	}
-}
-
-func elapsedTime(nowms int64) int64 {
-	return nowms - stTimestamp
 }
 
 // currentMillis get current millisecond.
