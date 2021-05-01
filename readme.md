@@ -41,12 +41,14 @@ That is to say I only take real millisecond at system start.
 Every 4095 time generating snowflake, my snowflake time +1 millisecond.
 This mechanism prevents time back problem.
 
-NOTICE: IF YOU DO CARE THE REAL TIME IN THE ID, YOU MAY NOT USE THIS
+> NOTICE: IF YOU DO CARE THE REAL TIME IN THE ID, YOU MAY NOT USE THIS
 
-> Each provider only needs to ensure that the serial number generated in the same millisecond is different. You can get a unique ID.
+user only needs to ensure that the machine is different. You can get a unique ID.
 
-# INSPIRED BY
-github.com/godruoyi/go-snowflake
+## INSPIRED BY
+### github.com/godruoyi/go-snowflake
+
+
 
 ## Feature
 
