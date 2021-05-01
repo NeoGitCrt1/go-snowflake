@@ -17,14 +17,11 @@ func TestID_Single(t *testing.T) {
 
 	mp := make(map[uint64]bool)
 	for i := 0; i < 100000; i++ {
-		id, e := snowflake.NextID()
+		id := snowflake.ID()
 		// if (i % snowflake.MaxSequence == 0) {
 		// 	t.Log(snowflake.ParseID(id))
 		// }
-		if e != nil {
-			t.Error(e)
-			continue
-		}
+		
 		if _, ok := mp[id]; ok {
 			sid := snowflake.ParseID(id)
 			t.Error("ID should't repeat", id, ":", i, ":", sid)
@@ -222,12 +219,7 @@ func TestParseID(t *testing.T) {
 }
 
 func TestSID_GenerateTime(t *testing.T) {
-	a, e := snowflake.NextID()
-	if e != nil {
-		t.Error(e)
-		return
-	}
-
+	a := snowflake.ID()
 	sid := snowflake.ParseID(a)
 
 	if sid.GenerateTime().UTC().Second() != time.Now().UTC().Second() {
@@ -238,7 +230,7 @@ func TestSID_GenerateTime(t *testing.T) {
 func BenchmarkParallelDefault(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			snowflake.NextID()
+			snowflake.ID()
 		}
 	})
 }
