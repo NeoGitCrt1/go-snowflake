@@ -71,10 +71,6 @@ func ID() uint64 {
 	return <-idChan
 }
 
-func NextID() (uint64 , error){
-	return <-idChan, nil
-}
-
 // SetStartTime set the start time for snowflake algorithm.
 //
 // It will panic when:

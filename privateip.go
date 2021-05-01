@@ -51,15 +51,14 @@ func lower16BitPrivateIP() (uint16, error) {
 	if err != nil {
 		return 0, err
 	}
+	return ipv4touint(ip), nil
+}
 
-	// Snowflake macnineID max length is 10, max value is 1023
-	// If ip[2] > 3, return ip[2] + ip[3], but:
-	// 10.21.5.211 => return 5 + 211 = 216
-	// 10.21.4.212 => return 4 + 212 = 216
-	// need help if you can do this.
-	if ip[2] > 3 {
-		return uint16(ip[2] + ip[3]), nil
-	}
-
-	return uint16(ip[2])<<8 + uint16(ip[3]), nil
+func ipv4touint(ip net.IP) uint16 {
+	l := len(ip)
+	var r uint = uint(ip[l -1] & 0xFF)
+	r |= uint(ip[l -2] ) << 8 & 0xFF00
+	r |= uint(ip[l -3] ) << 16 & 0xFF0000
+	r |= uint(ip[l -4] )<< 24 & 0xFF000000
+	return uint16(r)
 }
