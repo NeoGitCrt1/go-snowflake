@@ -24,48 +24,30 @@ const (
 	timestampMoveLength = MachineIDLength + SequenceLength
 )
 
-// SequenceResolver the snowflake sequence resolver.
-//
-// When you want use the snowflake algorithm to generate unique ID, You must ensure: The sequence-number generated in the same millisecond of the same node is unique.
-// Based on this, we create this interface provide following reslover:
-//   AtomicResolver : base sync/atomic (by default).
-type SequenceResolver func(ms int64) (uint16, error)
-
-// default start time is 2008-11-10 23:00:00 UTC, why ? In the playground the time begins at 2009-11-10 23:00:00 UTC.
-// It's can run on golang playground.
-// default machineID is 0
 var (
+	// default machineID is 0
+	// by SetDateCenterIdWorkerId/SetDateCenterIdWorkerIdWithLen or SetMachineID to change
 	machineID   = 0
+	// default start time is 2008-11-10 23:00:00 UTC, why ? In the playground the time begins at 2009-11-10 23:00:00 UTC.
+	// It's can run on golang playground.
 	stTimestamp = currentMillis(time.Date(2008, 11, 10, 23, 0, 0, 0, time.UTC))
 )
 
-// below for reference
-// go func() {
-// 	for {
-// 		value := rand.Intn(MaxRandomNumber)
-
-// 		select {
-// 		case <- stopCh:
-// 			return
-// 		case dataCh <- value:
-// 		}
-// 	}
-// }()
 var idChan chan uint64 = make(chan uint64, 200)
-
+// Maybe you need a self diagnose in system start up, to prevent large time back issue
+// by genertate an id(N) and compared to the last generated id(L) in the bussiness table
+// if N > L then no problem
 func init() {
 	go func() {
 		mId := &machineID
 		st := &stTimestamp
 		var now int64 = currentMillis(time.Now())
 		var seq int = 0
-		var df int
 		var pre int
 		for {
 			if seq == 0 {
 				now++
-				df = int(now - *st)
-				pre = (df << timestampMoveLength) | (*mId << machineIDMoveLength)
+				pre = (int(now - *st) << timestampMoveLength) | (*mId << machineIDMoveLength)
 			}
 			seq = MaxSequence & (seq + 1)
 			idChan <- uint64(pre | seq)
@@ -114,15 +96,19 @@ func SetStartTime(s time.Time) {
 	}
 }
 
+// d: datacenter id  (<=31)
+// w: workerId (<=31)
 func SetDateCenterIdWorkerId(d uint8, w uint8) {
 	SetMachineID(conbineDandW(d, w, 5))
 }
+// d: datacenter id  (less than (1 << (10 - wl)) )
+// w: workerId (less than (1 << wl) )
 func SetDateCenterIdWorkerIdWithLen(d uint8, w uint8, wl uint8) {
 	SetMachineID(conbineDandW(d, w, wl))
 }
 
 func conbineDandW(d uint8, w uint8, wl uint8) uint16 {
-	if ( wl > MachineIDLength) {
+	if ( wl >= MachineIDLength) {
 		panic("wl should less than 10")
 	}
 	return (uint16(d)<< (wl)) | uint16(w)
@@ -178,3 +164,16 @@ func ParseID(id uint64) SID {
 func currentMillis(t time.Time) int64 {
 	return t.UTC().UnixNano() / 1e6
 }
+
+// below for reference
+// go func() {
+// 	for {
+// 		value := rand.Intn(MaxRandomNumber)
+
+// 		select {
+// 		case <- stopCh:
+// 			return
+// 		case dataCh <- value:
+// 		}
+// 	}
+// }()

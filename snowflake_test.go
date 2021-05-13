@@ -2,6 +2,7 @@ package snowflake
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -218,40 +219,73 @@ func TestSIDSetStarttime(t *testing.T) {
 
 func TestConbineDandW(t *testing.T) {
 	v := conbineDandW(1, 1, 5)
-	if (v != 33) {
+	if v != 33 {
 		t.Log(v)
 		t.Fail()
 	}
 	v = conbineDandW(1, 2, 5)
-	if (v != 34) {
+	if v != 34 {
 		t.Log(v)
 		t.Fail()
 	}
 	v = conbineDandW(2, 1, 5)
-	if (v != 65) {
+	if v != 65 {
 		t.Log(v)
 		t.Fail()
 	}
 	v = conbineDandW(2, 3, 5)
-	if (v != 67) {
+	if v != 67 {
 		t.Log(v)
 		t.Fail()
 	}
 	v = conbineDandW(2, 3, 8)
-	if (v != 515) {
+	if v != 515 {
 		t.Log(v)
 		t.Fail()
 	}
 	v = conbineDandW(10, 10, 5)
-	if (v != 330) {
+	if v != 330 {
 		t.Log(v)
 		t.Fail()
 	}
 	v = conbineDandW(1, 255, 8)
-	if (v != 511) {
+	if v != 511 {
 		t.Log(v)
 		t.Fail()
 	}
+
+	v = conbineDandW(1, 255, 9)
+	if v != 767 {
+		t.Log(v)
+		t.Fail()
+	}
+
+	t.Run("Panic", func(tt *testing.T) {
+		defer func() {
+			if err := recover(); err == nil {
+				tt.Error("Should throw a error")
+			} else if err.(string) != "wl should less than 10" {
+				tt.Error("The error message should be eq 「wl should less than 10」")
+			}
+		}()
+
+		SetDateCenterIdWorkerIdWithLen(1, 2, 10)
+	})
+
+	SetDateCenterIdWorkerId(30, 30)
+	SetDateCenterIdWorkerId(31, 31)
+	t.Run("Panic", func(tt *testing.T) {
+		defer func() {
+			if err := recover(); err == nil {
+				tt.Error("Should throw a error")
+			} else if err.(string) != "The machineid cannot be greater than 1023" {
+				tt.Error("The error message should be eq 「The machineid cannot be greater than 1023」")
+			}
+		}()
+
+		SetDateCenterIdWorkerId(255, 255)
+	})
+
 }
 
 func BenchmarkParallelDefault(b *testing.B) {
@@ -261,3 +295,47 @@ func BenchmarkParallelDefault(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkAtomicAdd(b *testing.B) {
+	var a int64 = 0
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			atomic.AddInt64(&a, 1)
+		}
+	})
+	b.Log(a)
+
+	
+}
+func BenchmarkCASAdd(b *testing.B) {
+	var a int64 = 0
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			var s int64
+			for {
+				s = atomic.LoadInt64(&a)
+				if (atomic.CompareAndSwapInt64(&a , s, s+1) ) {
+					break
+				}
+			}
+			
+		}
+	})
+	b.Log(a)
+
+	
+}
+func BenchmarkLockAdd(b *testing.B) {
+	a := 0
+	var mutex sync.Mutex
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			mutex.Lock()
+			a++
+			mutex.Unlock()
+		}
+	})
+	b.Log(a)
+}
+
+
